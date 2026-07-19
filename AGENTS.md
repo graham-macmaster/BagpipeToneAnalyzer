@@ -1,0 +1,61 @@
+# AGENTS.md
+
+Guidance for AI coding agents working in this repository. See `PROJECT.md` for the product goal.
+
+## What this is
+
+A .NET console app that takes a bagpipe recording (MP3) and prints a "steadiness" rating (0-100): how much a piper's pitch wavers within sustained notes, and how consistently the same note is pitched across different occurrences in a tune.
+
+## Build / run / test
+
+Requires the dotnet SDK pinned in `.tool-versions` (managed via `mise`; run `eval "$(mise activate bash)"` once per shell if `dotnet` isn't on PATH).
+
+```sh
+dotnet build
+dotnet run --project src/BagpipeToneAnalyzer -- <path-to-recording.mp3>
+dotnet run --project src/BagpipeToneAnalyzer -c Release -- <path-to-recording.mp3>  # ~5-10x faster, use for real analysis runs
+```
+
+There is no automated test suite yet. The de facto smoke test is running against `test.mp3` in the repo root and checking the output is musically plausible (see "Sanity-checking changes" below).
+
+## Architecture
+
+Pipeline, in order, under `src/BagpipeToneAnalyzer/`:
+
+1. **`Audio/Mp3Loader.cs`** - decodes MP3 to mono PCM float samples using NLayer (pure-managed C#, no ffmpeg/native codec dependency). This is deliberate: the tool needs to run on machines without ffmpeg installed. Uses NLayer's built-in `StereoMode.DownmixToMono`.
+2. **`Dsp/BiquadFilter.cs`, `Dsp/BandpassFilter.cs`** - cascaded biquad high-pass + low-pass (300-1200 Hz, 24 dB/octave) to isolate the chanter melody from the drones before pitch tracking. Drones sit roughly an octave or more below the chanter's range. Without this filter, pitch detection gets confused by drone content.
+3. **`Dsp/YinPitchDetector.cs`** - YIN algorithm (de Cheveigne and Kawahara) for per-frame fundamental frequency estimation. The lag search is restricted to 250-1400 Hz (the chanter's plausible range), both for speed (avoids a full-range O(W^2) search) and to reject octave errors. Frames are processed in parallel via `Parallel.For` since each is independent. This is what keeps a ~5 minute recording under a few seconds to analyze.
+4. **`Analysis/NoteSegmenter.cs`** - groups the per-frame pitch stream into discrete sustained notes. A new note starts on a >45-cent jump from the running average, or a >30ms voicing gap. Segments under 80ms are dropped as grace notes/ornaments, not sustained tones worth rating.
+5. **`Analysis/SteadinessAnalyzer.cs`** - the actual scoring. Two components, both converted from a cents standard deviation to a 0-100 score via `100 * exp(-stddev/k)` (k is tuned so a 20-cent stddev scores about 50):
+   - **Within-note**: pitch stddev inside each note, trimming ~15ms off each edge first to avoid attack/release transients skewing the number.
+   - **Across-occurrence**: for notes that recur (grouped by nearest 12-TET name), stddev of their median pitches across occurrences. Notes that never repeat don't contribute. If nothing repeats, the overall score falls back to within-note only (`HasAcrossOccurrenceData = false`).
+6. **`Theory/PitchMath.cs`** - Hz/cents/note-name conversions, A4 = 440 Hz reference. Note names are informational labels only (nearest 12-TET pitch class). Bagpipe chanters are typically tuned noticeably sharp of concert pitch, so don't be surprised to see, for example, `A#4` for what a piper would call "Low A".
+7. **`Reporting/ConsoleReporter.cs`, `Program.cs`** - CLI argument handling and output formatting.
+
+## Key tunable constants (if steadiness numbers look wrong)
+
+| Constant | Location | Purpose |
+| --- | --- | --- |
+| `LowCutoffHz` / `HighCutoffHz` (300/1200) | `BandpassFilter` | Chanter isolation band |
+| `MinFrequencyHz` / `MaxFrequencyHz` (250/1400) | `YinPitchDetector` | Pitch search range |
+| `AperiodicityThreshold` (0.15) | `YinPitchDetector` | YIN voiced/unvoiced cutoff |
+| `PitchJumpThresholdCents` (45) | `NoteSegmenter` | New-note boundary sensitivity |
+| `MinNoteDurationSeconds` (0.08) | `NoteSegmenter` | Ornament vs. sustained-note cutoff |
+| `EdgeTrimSeconds` (0.015) | `SteadinessAnalyzer` | Attack/release transient trim |
+| `ScoreDecayConstant` | `SteadinessAnalyzer` | Cents-stddev to score curve steepness |
+
+## Sanity-checking changes
+
+There's no ground-truth labeled dataset. When touching the DSP/analysis pipeline, re-run against `test.mp3` and eyeball the per-note table:
+
+- Detected note names should trace a recognizable Great Highland Bagpipe scale (roughly 9 notes spanning about a ninth: low, low+step, then a run up to an octave-plus above).
+- Frequencies for the same note name should cluster tightly across the piece (allow for the sharp-of-440 tuning mentioned above).
+- Note durations should roughly match the tune's rhythm (jigs: mostly 100-300ms notes).
+- A `-c Release` run should still finish in single-digit seconds for a ~5 minute recording. If a change makes it noticeably slower, check whether the YIN lag range or window size grew.
+
+## Conventions
+
+- No code comments except where a non-obvious constraint or magic number needs explaining (see the table above for what already has rationale in the code).
+- Prefer adding new pipeline stages as their own class in the matching namespace folder (`Audio/`, `Dsp/`, `Analysis/`, `Theory/`, `Reporting/`) over growing existing classes.
+- Only MP3 input is supported by design (see `PROJECT.md` scope discussion). Don't add other format support without checking with the user first, since it changes the loader architecture (NLayer is MP3-specific).
+- Avoid characters not readily available on an ANSI keyboard in any generated text or program output (hyphens instead of em dashes, straight quotes instead of curly ones, three dots instead of an ellipsis character).
