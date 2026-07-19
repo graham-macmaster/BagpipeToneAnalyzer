@@ -57,7 +57,7 @@ dotnet build -c Release
 1. The recording is decoded and mixed down to a single mono track.
 2. The audio is filtered to isolate the chanter's melody and filter out the constant drone notes running underneath it. Without this, the drones would confuse pitch detection.
 3. The tool tracks pitch continuously throughout the recording, in short overlapping slices of time.
-4. Consecutive slices with a stable, continuous pitch get grouped into individual "notes." Very short blips (grace notes, doublings, toarluaths, etc.) are ignored. This tool is interested in "the black notes," not their embellishments.
+4. Consecutive slices with a stable, continuous pitch get grouped into individual "notes." Very short blips (grace notes, doublings, toarluaths, etc.) are ignored. This tool is interested in "the black notes," not their embellishments. A held note that briefly chokes (the chanter cuts out or squeals) and resumes at the same pitch still counts as one note, not two.
 5. For each note, it measures how much the pitch drifted while the note was held, and converts that into a 0-100 steadiness score.
 6. It also groups every instance of the "same" note across the whole recording and checks how consistent their pitches were with each other.
 

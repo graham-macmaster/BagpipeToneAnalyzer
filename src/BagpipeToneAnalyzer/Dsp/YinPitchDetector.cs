@@ -9,9 +9,9 @@ namespace BagpipeToneAnalyzer.Dsp;
 /// </summary>
 public sealed class YinPitchDetector
 {
-    private const double MinFrequencyHz = 250.0;
+    private const double MinFrequencyHz = 320.0;
     private const double MaxFrequencyHz = 1400.0;
-    private const double AperiodicityThreshold = 0.15;
+    private const double AperiodicityThreshold = 0.4;
 
     public int WindowSize { get; init; } = 1024;
     public int HopSize { get; init; } = 512;
@@ -67,8 +67,10 @@ public sealed class YinPitchDetector
             cmnd[tau] = diff[tau] * tau / runningSum;
         }
 
-        // Step 3: find the first dip below the threshold within the valid tau range,
-        // falling back to the global minimum in that range if nothing dips below it.
+        // Step 3: find the first dip below the threshold within the valid tau range. Scanning
+        // from the smallest tau (highest frequency) upward and stopping at the first qualifying
+        // dip favors the true fundamental over a lower-frequency subharmonic that can otherwise
+        // look equally (or more) periodic when strong harmonics are present in the tone.
         int bestTau = -1;
         for (int tau = minTau; tau <= maxTau; tau++)
         {
@@ -83,23 +85,11 @@ public sealed class YinPitchDetector
             }
         }
 
+        // No sufficiently periodic lag anywhere in range: treat the frame as unvoiced rather than
+        // guessing from a weak/noisy dip (this is what a genuine choke or breath noise looks like).
         if (bestTau == -1)
         {
-            double minValue = double.MaxValue;
-            for (int tau = minTau; tau <= maxTau; tau++)
-            {
-                if (cmnd[tau] < minValue)
-                {
-                    minValue = cmnd[tau];
-                    bestTau = tau;
-                }
-            }
-
-            // No convincingly periodic lag in range: treat frame as unvoiced.
-            if (minValue >= 0.5)
-            {
-                return null;
-            }
+            return null;
         }
 
         double refinedTau = ParabolicInterpolate(cmnd, bestTau);
