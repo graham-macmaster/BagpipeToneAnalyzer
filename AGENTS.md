@@ -59,3 +59,11 @@ There's no ground-truth labeled dataset. When touching the DSP/analysis pipeline
 - Prefer adding new pipeline stages as their own class in the matching namespace folder (`Audio/`, `Dsp/`, `Analysis/`, `Theory/`, `Reporting/`) over growing existing classes.
 - Only MP3 input is supported by design (see `PROJECT.md` scope discussion). Don't add other format support without checking with the user first, since it changes the loader architecture (NLayer is MP3-specific).
 - Avoid characters not readily available on an ANSI keyboard in any generated text or program output (hyphens instead of em dashes, straight quotes instead of curly ones, three dots instead of an ellipsis character).
+
+## Keeping this file and README.md current
+
+Both files describe the system as it exists today, not as it was when first written. Whenever a change adds, removes, or restructures a pipeline stage, changes a build/run/test command, adds a tunable constant worth documenting, or changes user-facing behavior:
+
+- Update the relevant section of this file (architecture list, constants table, build/run commands, conventions) in the same change.
+- Update `README.md` if the change affects what a user would see there (usage instructions, features, requirements).
+- Treat a pull request that changes behavior but leaves these files stale as incomplete, not optional cleanup.
