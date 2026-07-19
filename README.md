@@ -32,8 +32,8 @@ Note the note names (A#4, B4, etc.) are just the nearest standard pitch. Most ba
 
 ## Requirements
 
-- [.NET SDK](https://dotnet.microsoft.com/download), version pinned in `.tool-versions`. If you use [mise](https://mise.jdx.dev/) or asdf, it picks this up automatically.
-- An MP3 recording to analyze. That's currently the only supported input format.
+- [.NET SDK](https://dotnet.microsoft.com/download).
+- An MP3 recording to analyze. That's currently the only supported input format. Some sample files are provided in the `samples` directory.
 
 No ffmpeg or other external tools needed. MP3 decoding is handled entirely in .NET.
 
