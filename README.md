@@ -26,7 +26,7 @@ Detected 1046 sustained note(s):
    ...
 ```
 
-A score of 100 means dead-steady pitch with no measurable wavering. Lower scores mean more audible pitch movement, either wobble within a note, or the same note landing at noticeably different pitches at different points in the recording. A perfect 100 score is impossible for a human to produce prove me wrong!
+A score of 100 means dead-steady pitch with no measurable wavering. Lower scores mean more audible pitch movement, either wobble within a note, or the same note landing at noticeably different pitches at different points in the recording. A perfect 100 score is impossible for a human to produce. (Prove me wrong!)
 
 Note the note names (A#4, B4, etc.) are just the nearest standard pitch. Most bagpipe chanters are tuned sharper than concert pitch, so don't expect these to line up with what a piper would call the note. What shows up here as "A#4" is likely what a piper calls "Low A."
 
